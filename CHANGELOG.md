@@ -2,6 +2,20 @@
 
 All notable changes to this plugin will be documented in this file.
 
+## [0.3.0] - 2026-03-06
+
+### Fixed
+- Corrected endpoint URL casing: `warningMessages` (lowercase) instead of `WarningMessages`
+- Corrected history endpoint path: added missing `/alert/` segment
+- Expanded 403 troubleshooting to cover Akamai WAF path-sensitivity (not just geo-blocking)
+
+### Added
+- Alternative history endpoint on `alerts-history.oref.org.il` with richer metadata
+- Proper versioning: version now lives in marketplace.json (required for relative-path plugins)
+
+### Changed
+- Restructured repo: plugin moved to `plugins/pikud-haoref-alerts/` subdirectory (required for marketplace to work)
+
 ## [0.2.0] - 2026-03-06
 
 ### Added

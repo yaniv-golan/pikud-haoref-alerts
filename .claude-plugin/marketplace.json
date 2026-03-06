@@ -10,6 +10,7 @@
     {
       "name": "pikud-haoref-alerts",
       "source": "./plugins/pikud-haoref-alerts",
+      "version": "0.3.0",
       "description": "Comprehensive guide for building integrations with Israel's Pikud HaOref (Home Front Command) alert system"
     }
   ]
