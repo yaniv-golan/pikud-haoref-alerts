@@ -1,0 +1,16 @@
+{
+  "name": "pikud-haoref-alerts",
+  "owner": {
+    "name": "Yaniv Golan"
+  },
+  "metadata": {
+    "description": "Skills and knowledge for building integrations with Israel's Home Front Command alert system"
+  },
+  "plugins": [
+    {
+      "name": "pikud-haoref-alerts",
+      "source": "./plugins/pikud-haoref-alerts",
+      "description": "Comprehensive guide for building integrations with Israel's Pikud HaOref (Home Front Command) alert system"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "pikud-haoref-alerts",
+  "version": "0.2.0",
+  "description": "Comprehensive guide for building integrations with Israel's Pikud HaOref (Home Front Command) alert system \u2014 rocket alerts, earthquake warnings, and civil defense notifications.",
+  "author": {
+    "name": "Yaniv Golan"
+  },
+  "repository": "https://github.com/yaniv-golan/pikud-haoref-alerts",
+  "license": "MIT",
+  "keywords": [
+    "pikud-haoref",
+    "israel",
+    "alerts",
+    "tzeva-adom",
+    "red-alert",
+    "civil-defense",
+    "home-front-command"
+  ]
+}
