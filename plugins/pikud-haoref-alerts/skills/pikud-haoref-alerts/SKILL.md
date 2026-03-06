@@ -19,7 +19,7 @@ compatibility: >
   deployment examples assume GCP me-west1 (Tel Aviv) or equivalent Israeli IP.
 metadata:
   author: Yaniv Golan
-  version: 0.4.0
+  version: 0.5.0
   tags: [israel, alerts, civil-defense, pikud-haoref, tzeva-adom, rockets, emergency]
 ---
 
@@ -31,6 +31,7 @@ For detailed reference material, see the `references/` directory:
 - `references/community-libraries.md` — Node.js, Python, C#, Docker wrapper libraries
 - `references/mcp-and-homeassistant.md` — MCP server for AI integration, Home Assistant setups
 - `references/common-patterns.md` — Polling loops, notification bots, dashboards, maps, historical archiving, multi-location monitoring, smart home, accessibility
+- `references/alternative-data-sources.md` — Tzofar (tzevaadom.co.il) API, oref-to-Tzofar category mapping, community archive projects
 
 ## Critical constraint: geo-blocking
 
@@ -100,7 +101,7 @@ X-Requested-With: XMLHttpRequest
 GET https://www.oref.org.il/warningMessages/alert/History/AlertsHistory.json
 ```
 
-Returns alerts from the recent past (typically last 24 hours). Useful for historical analysis and catching alerts you may have missed between polls.
+Returns the most recent alerts, **hard-capped at 3,000 records with no pagination**. During low-activity periods this may cover weeks; during high-intensity conflicts a single day can exceed 3,000 records (e.g., 1,147 pre-alerts + 483 missile alerts + 22 aircraft + 1,348 concluded = 3,000 exactly). Useful for catching alerts you may have missed between polls, but not reliable for historical analysis during escalation periods.
 
 **Important:** The commonly documented path `/WarningMessages/History/AlertsHistory.json` (capital W/M, no `/alert/` segment) is blocked by Akamai WAF with a 403. The working path uses lowercase `warningMessages` and includes `/alert/` — matching what the Angular SPA actually requests.
 
@@ -125,6 +126,8 @@ GET https://alerts-history.oref.org.il/Shared/Ajax/GetAlarmsHistory.aspx?lang=he
 ```
 
 An ASP.NET endpoint on a dedicated subdomain that returns richer history data including `matrix_id`, `rid`, and `category_desc` fields. Useful as a fallback or when you need the extra metadata. Supports `lang=he` (Hebrew) and `lang=en` (English).
+
+**Same 3,000-record cap applies.** The `mode` parameter accepts values 1–3 (modes 4–5 return empty), but all modes return the same 3,000 most recent records. No date-range query parameters are supported. This is not a pagination mechanism.
 
 **Date format differences between history endpoints:**
 - `AlertsHistory.json`: `"alertDate": "2026-03-06 19:33:53"` (space-separated, with seconds)
@@ -193,6 +196,20 @@ def is_situation_active(location_hebrew, history):
         return True   # alert with no conclusion yet
     return last_alert_time > last_concluded_time  # alert after last conclusion
 ```
+
+### Historical data strategy
+
+The 3,000-record cap on both official history endpoints means you need different sources depending on your time horizon:
+
+| Need | Source | Notes |
+|------|--------|-------|
+| Last few minutes | `alerts.json` (real-time) | Poll every 1–2 seconds |
+| Last ~3,000 records | `AlertsHistory.json` or `GetAlarmsHistory.aspx` | Hours to weeks depending on activity level |
+| Last 50 alert groups | `api.tzevaadom.co.il/alerts-history` | No geo-blocking, no pre-alerts/concluded |
+| Months/years of history | Tzofar `/static/historical/all.json` | 20K+ records back to May 2021, no geo-blocking, no pre-alerts/concluded |
+| Complete historical with all categories | Run your own continuous poller | See community archives in `references/alternative-data-sources.md` |
+
+**Oref category to Tzofar threat mapping:** When working with both data sources, note that the numeric IDs differ. See the full mapping table in `references/alternative-data-sources.md`. Key gotcha: Tzofar does not include pre-alerts (cat 14) or event-concluded (cat 13) messages.
 
 ---
 
@@ -309,4 +326,5 @@ Every location has a `countdown` value (seconds). Ranges from 0 seconds (border 
 5. **Hebrew encoding** — All location names and descriptions are in Hebrew. Use UTF-8 throughout your stack.
 6. **Multiple simultaneous alerts** — During heavy barrages, multiple alert types can be active simultaneously. Your code should handle arrays, not assume single alerts.
 7. **Drill alerts** — Categories 101–107 are drills. Filter them unless you specifically want them.
-8. **403 Forbidden** — Two common causes: (a) geo-blocking — deploy from an Israeli IP (GCP me-west1) or use a proxy; (b) Akamai WAF blocking the URL path — the endpoint paths are case-sensitive and must match exactly what the Angular SPA uses (lowercase `warningMessages`, include `/alert/` segment). The commonly documented uppercase paths return 403 even from Israeli IPs.
+8. **3,000-record history cap** — Both `AlertsHistory.json` and `GetAlarmsHistory.aspx` are hard-capped at 3,000 records with no pagination or date-range filtering. During high-intensity conflicts, this can cover less than a single day. The `mode=1,2,3` parameter on `GetAlarmsHistory.aspx` does NOT provide pagination — all modes return the same 3,000 most recent records (`mode=4,5` return empty). For deeper history, use Tzofar's archive or a community poller (see `references/alternative-data-sources.md`).
+9. **403 Forbidden** — Two common causes: (a) geo-blocking — deploy from an Israeli IP (GCP me-west1) or use a proxy; (b) Akamai WAF blocking the URL path — the endpoint paths are case-sensitive and must match exactly what the Angular SPA uses (lowercase `warningMessages`, include `/alert/` segment). The commonly documented uppercase paths return 403 even from Israeli IPs.

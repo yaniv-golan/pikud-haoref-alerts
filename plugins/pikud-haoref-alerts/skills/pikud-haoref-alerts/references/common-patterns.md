@@ -93,7 +93,7 @@ For a live map showing active alerts:
 
 ## Historical data analysis
 
-The history endpoint (`AlertsHistory.json`) only gives you ~24 hours. For longer-term analysis, you need to build your own archive by continuously polling and storing alerts.
+The history endpoint (`AlertsHistory.json`) is hard-capped at 3,000 records — during low-activity periods this may cover weeks, but during heavy conflicts it can be exhausted in hours. For longer-term analysis, consider Tzofar's static archive (see `references/alternative-data-sources.md`) or build your own archive by continuously polling and storing alerts.
 
 **Storage approach:**
 ```python
@@ -180,9 +180,9 @@ Multi-language support is important here — many Israeli residents are more com
 
 ## Third-party data sources
 
-Besides the official oref.org.il endpoints, there are alternative channels:
+Besides the official oref.org.il endpoints, there are alternative channels. See `references/alternative-data-sources.md` for full details including API endpoints, data models, and category mappings.
 
-- **tzevaadom.co.il** — A third-party alert relay service. The oref_alert Home Assistant integration uses it as one of its data channels. Can be faster than the official website endpoint in some cases, since it also captures mobile push notification data.
-- **Tzofar app** — Popular mobile app for alerts. Its polygon data is used by the pikud-haoref-api library for zone boundaries.
+- **Tzofar (tzevaadom.co.il)** — A third-party alert relay service with **no geo-blocking**. Provides a recent alerts API, single-alert lookup, and a static historical archive (`/static/historical/all.json`) with 20K+ records back to May 2021. Also hosts its own cities.json and polygons.json. Critical caveat: does NOT include pre-alerts (oref cat 14) or event-concluded messages (oref cat 13). The oref_alert Home Assistant integration uses it as one of its data channels.
+- **Community archive projects** — hasadna/oref-alarms-history, Meir017/oref-data, and others continuously poll and archive alerts, solving the 3,000-record cap problem. See `references/alternative-data-sources.md` for links.
 
-These can be useful as redundant sources or for cross-validation, but the official oref.org.il endpoint should be treated as the authoritative source.
+The official oref.org.il endpoint should be treated as the authoritative source for real-time alerting. Tzofar and community archives are valuable for historical analysis and as redundant/fallback sources.

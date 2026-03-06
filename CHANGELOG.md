@@ -2,6 +2,26 @@
 
 All notable changes to this plugin will be documented in this file.
 
+## [0.5.0] - 2026-03-07
+
+Learnings from Cowork research session analyzing the official and third-party APIs.
+
+### Added
+- Documented 3,000-record hard cap on both official history endpoints (AlertsHistory.json and GetAlarmsHistory.aspx)
+- New reference: `references/alternative-data-sources.md` covering Tzofar (tzevaadom.co.il) API
+  - Tzofar endpoints: alerts-history, single alert lookup, static historical archive (20K+ records)
+  - Tzofar threat type mapping table (differs from oref categories)
+  - Oref category to Tzofar threat mapping table
+  - Tzofar's cities.json and polygons.json data sources
+  - Critical caveat: Tzofar excludes pre-alerts (cat 14) and event-concluded (cat 13)
+- Historical data strategy decision tree (which source to use for each time horizon)
+- Community archive projects (hasadna, Meir017, Kaggle dataset, idodov/RedAlert)
+- Gotcha: `mode` parameter on GetAlarmsHistory.aspx does not provide pagination
+
+### Fixed
+- AlertsHistory.json description: was "typically last 24 hours", now accurately describes 3,000-record cap
+- Third-party data sources section in common-patterns.md expanded with Tzofar details and links
+
 ## [0.4.0] - 2026-03-06
 
 Issues discovered during live testing with Claude Cowork during an actual rocket alert.
