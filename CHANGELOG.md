@@ -2,6 +2,21 @@
 
 All notable changes to this plugin will be documented in this file.
 
+## [0.4.0] - 2026-03-06
+
+Issues discovered during live testing with Claude Cowork during an actual rocket alert.
+
+### Added
+- Documented category 13 "event concluded" (האירוע הסתיים) as the authoritative signal an alert is over
+- Documented category 14 pre-alert (בדקות הקרובות צפויות להתקבל התרעות) as an early warning of incoming barrage
+- Added "Determining if a situation is still active" section with dual-check pattern and code example
+- Documented date format differences between the two history endpoints
+
+### Fixed
+- Example 2 ("Is there an alert in Ashkelon right now?") now uses dual-check pattern instead of relying solely on alerts.json
+- Clarified that alerts.json is an ephemeral snapshot (seconds to a minute), not a status indicator
+- Added Hebrew titles for categories 13 and 14 in the categories table
+
 ## [0.3.0] - 2026-03-06
 
 ### Fixed

@@ -19,7 +19,7 @@ compatibility: >
   deployment examples assume GCP me-west1 (Tel Aviv) or equivalent Israeli IP.
 metadata:
   author: Yaniv Golan
-  version: 0.2.0
+  version: 0.4.0
   tags: [israel, alerts, civil-defense, pikud-haoref, tzeva-adom, rockets, emergency]
 ---
 
@@ -65,6 +65,8 @@ GET https://www.oref.org.il/warningMessages/alert/alerts.json
 ```
 
 Returns the currently active alert, or an empty response when no alert is active. Must be polled — typically every 1–2 seconds for real-time responsiveness.
+
+**Critical: this is a snapshot, not a status check.** Alerts appear on this endpoint only briefly (typically seconds to a minute) while the siren is actively sounding. An empty response does NOT mean "all clear" — it only means no siren is sounding right now. To determine if a situation is still active, you must also check the history endpoint for recent alerts without a matching category 13 "event concluded" message (see [Determining if a situation is still active](#determining-if-a-situation-is-still-active) below).
 
 **Response when alert is active:**
 ```json
@@ -124,6 +126,10 @@ GET https://alerts-history.oref.org.il/Shared/Ajax/GetAlarmsHistory.aspx?lang=he
 
 An ASP.NET endpoint on a dedicated subdomain that returns richer history data including `matrix_id`, `rid`, and `category_desc` fields. Useful as a fallback or when you need the extra metadata. Supports `lang=he` (Hebrew) and `lang=en` (English).
 
+**Date format differences between history endpoints:**
+- `AlertsHistory.json`: `"alertDate": "2026-03-06 19:33:53"` (space-separated, with seconds)
+- `GetAlarmsHistory.aspx`: `"alertDate": "2026-03-06T19:35:00"` (ISO 8601 T-separator, seconds always `:00`)
+
 ### Alert categories
 
 ```
@@ -141,10 +147,52 @@ Returns the mapping of category numbers to alert types. Known categories:
 | 5 | Radiological event | אירוע רדיולוגי |
 | 6 | Hazardous materials | חומרים מסוכנים |
 | 7 | Terrorist infiltration | חדירת מחבלים |
-| 13 | Event conclusion | — |
-| 14 | Pre-alert / news flash | — |
+| 13 | Event conclusion | האירוע הסתיים |
+| 14 | Pre-alert / incoming alerts warning | בדקות הקרובות צפויות להתקבל התרעות באזורך |
 
 Categories 101–107 are the drill equivalents of 1–7.
+
+### Category 13: event conclusion
+
+When Pikud HaOref determines the threat to a location has passed, it sends a category 13 alert with the title "האירוע הסתיים" (the event has ended) or "ניתן לצאת מהמרחב המוגן" (you may exit the protected space). This is the **authoritative signal** that a specific alert event is over. It appears per-location in the history endpoint.
+
+### Category 14: pre-alert (incoming alerts warning)
+
+A category 14 alert with the title "בדקות הקרובות צפויות להתקבל התרעות באזורך" warns that alerts are expected in the coming minutes for a given area. This is an early warning that a barrage is incoming — valuable for preparation time beyond the standard time-to-shelter countdown. If a pre-alert doesn't escalate to an actual alert (cat 1–7) within ~20 minutes, it can be considered expired.
+
+### Determining if a situation is still active
+
+**Do not rely solely on `alerts.json` being empty.** The real-time endpoint is a narrow snapshot — alerts disappear within seconds. The correct approach is a dual-check:
+
+1. **Check `alerts.json`** for the instant snapshot (is a siren sounding right now?)
+2. **Check the history endpoint** for recent cat 1–7 alerts for the location
+3. **Check if a matching cat 13** "event concluded" has followed the alert for that location
+4. If no cat 13 has been received yet → the situation is **still active**
+
+```python
+def is_situation_active(location_hebrew, history):
+    """Check if a location still has an active alert (no cat 13 received yet)."""
+    last_alert_time = None
+    last_concluded_time = None
+
+    for entry in history:
+        if location_hebrew not in entry.get("data", ""):
+            continue
+        cat = entry.get("category", 0)
+        alert_time = entry.get("alertDate", "")
+        if cat in (1, 2, 3, 4, 5, 6, 7):
+            if last_alert_time is None or alert_time > last_alert_time:
+                last_alert_time = alert_time
+        elif cat == 13:
+            if last_concluded_time is None or alert_time > last_concluded_time:
+                last_concluded_time = alert_time
+
+    if last_alert_time is None:
+        return False  # no recent alert
+    if last_concluded_time is None:
+        return True   # alert with no conclusion yet
+    return last_alert_time > last_concluded_time  # alert after last conclusion
+```
 
 ---
 
@@ -233,9 +281,10 @@ Every location has a `countdown` value (seconds). Ranges from 0 seconds (border 
 
 **Example 2: "Is there an alert in Ashkelon right now?"**
 - Load cities.json to resolve "Ashkelon" → "אשקלון"
-- Poll the real-time endpoint with required headers
-- Substring-match "אשקלון" against the alert `data` array
+- **Dual-check**: poll `alerts.json` AND check history for recent cat 1–7 alerts without a matching cat 13
+- Substring-match "אשקלון" against the alert `data` fields
 - Report result including time-to-shelter (15 seconds for Ashkelon)
+- If alerts.json is empty but history shows a recent alert with no cat 13 → situation is still active
 
 **Example 3: "Set up a live alert map dashboard"**
 - Server-side: polling loop → fan out via SSE or WebSocket (see `references/common-patterns.md`)
