@@ -19,7 +19,7 @@ compatibility: >
   deployment examples assume GCP me-west1 (Tel Aviv) or equivalent Israeli IP.
 metadata:
   author: Yaniv Golan
-  version: 0.5.1
+  version: 0.5.2
   tags: [israel, alerts, civil-defense, pikud-haoref, tzeva-adom, rockets, emergency]
 ---
 
@@ -204,12 +204,14 @@ The 3,000-record cap on both official history endpoints means you need different
 | Need | Source | Notes |
 |------|--------|-------|
 | Last few minutes | `alerts.json` (real-time) | Poll every 1–2 seconds |
-| Last ~3,000 records | `AlertsHistory.json` or `GetAlarmsHistory.aspx` | Hours to weeks depending on activity level |
-| Last 50 alert groups | `api.tzevaadom.co.il/alerts-history` | No geo-blocking, no pre-alerts/concluded |
-| Months/years of history | Iterate Tzofar alert group IDs backwards | No geo-blocking, no pre-alerts/concluded; use parallel fetching |
-| Complete historical with all categories | Run your own continuous poller | See community archives in `references/alternative-data-sources.md` |
+| Last ~3,000 records (all categories) | `AlertsHistory.json` or `GetAlarmsHistory.aspx` | Includes pre-alerts + concluded; hours to weeks depending on activity |
+| Last 50 alert groups (no pre-alerts) | `api.tzevaadom.co.il/alerts-history` | No geo-blocking |
+| Months/years (no pre-alerts) | Iterate Tzofar alert group IDs backwards | No geo-blocking; watch rate limits (see `references/alternative-data-sources.md`) |
+| Complete historical with pre-alerts | Your own continuous poller | **No retroactive source exists** — must be running before the period you need |
 
-**Oref category to Tzofar threat mapping:** When working with both data sources, note that the numeric IDs differ. See the full mapping table in `references/alternative-data-sources.md`. Key gotcha: Tzofar does not include pre-alerts (cat 14) or event-concluded (cat 13) messages.
+**Pre-alert historical gap (critical limitation):** There is no retroactive source for pre-alert data (cat 14) or event-concluded messages (cat 13). Tzofar excludes them entirely. The official oref history endpoints include them but are capped at 3,000 records. During active conflict, those 3,000 records may cover only hours. **If you need historical pre-alert data, you MUST set up your own continuous poller before the period you want to analyze.** There is no way to recover this data after the fact. Community archives (hasadna, Meir017) also lack pre-alerts unless their specific scraper captures them.
+
+**Oref category to Tzofar threat mapping:** When working with both data sources, note that the numeric IDs differ. See the full mapping table in `references/alternative-data-sources.md`.
 
 ---
 
@@ -314,6 +316,13 @@ Every location has a `countdown` value (seconds). Ranges from 0 seconds (border 
 - Auto-configures from HA's home location
 - Provides `sensor.oref_alert` and `_time_to_shelter` entities
 - Common automations: flash lights, lock doors, pause media, announce via speakers
+
+**Example 5: "Analyze alert patterns over the last week of conflict"**
+- First question: do you need pre-alerts (cat 14)? If yes, you need your own poller archive — no retroactive source exists
+- For actual threat alerts only: iterate Tzofar alert group IDs backwards with conservative pacing (1–2s delays)
+- For the most recent data (if within 3,000 records): use `GetAlarmsHistory.aspx` which includes all categories
+- Normalize Tzofar and oref data into a common schema using the category mapping in `references/alternative-data-sources.md`
+- Enrich with cities.json for coordinates and zone data for geographic analysis
 
 ---
 

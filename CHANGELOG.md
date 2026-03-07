@@ -2,6 +2,19 @@
 
 All notable changes to this plugin will be documented in this file.
 
+## [0.5.2] - 2026-03-07
+
+Fixes remaining issues found during second Cowork validation run.
+
+### Fixed
+- common-patterns.md still referenced dead Tzofar `/static/historical/all.json` and static archive
+- Tzofar rate limiting: replaced "10 concurrent requests" with documented limits (~13 requests before 429, recommend 1-2s delays, max 3-5 concurrent)
+
+### Added
+- Pre-alert historical gap warning: no retroactive source for cat 14/13 data — must run your own poller
+- Historical data strategy table now shows pre-alert availability per source
+- Example 5: retrospective conflict analysis use case with data source decision tree
+
 ## [0.5.1] - 2026-03-07
 
 Fixes factual errors found during Cowork validation of v0.5.0.

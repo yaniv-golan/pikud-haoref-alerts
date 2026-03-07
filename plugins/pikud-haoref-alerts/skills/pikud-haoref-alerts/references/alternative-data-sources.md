@@ -29,7 +29,9 @@ GET https://api.tzevaadom.co.il/alerts-history/id/5911
 ...
 ```
 
-Use parallel fetching (e.g., 10 concurrent requests) to avoid timeouts when fetching hundreds of groups. The `/alerts-history` endpoint returns the most recent ~50 groups — use the lowest `id` from that response as your starting point for iteration.
+**Rate limiting:** Tzofar enforces rate limits — rapid sequential requests will return HTTP 429 after ~13 requests. Use conservative pacing: 1–2 second delays between requests, and no more than 3–5 concurrent requests. Fetching hundreds of groups will take minutes, not seconds.
+
+The `/alerts-history` endpoint returns the most recent ~50 groups — use the lowest `id` from that response as your starting point for backward iteration. IDs are sequential (no gaps).
 
 ### Data model
 
