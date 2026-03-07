@@ -2,6 +2,14 @@
 
 All notable changes to this plugin will be documented in this file.
 
+## [0.5.6] - 2026-03-07
+
+Sixth Cowork validation iteration.
+
+### Fixed
+- Timestamp normalizer: replaced hardcoded `timedelta(hours=2)` with `zoneinfo.ZoneInfo("Asia/Jerusalem")` for automatic DST handling
+- Pre-alert matching function now uses `normalize_alert_time()` with proper datetime comparison and time window, instead of raw string comparison
+
 ## [0.5.5] - 2026-03-07
 
 Fifth Cowork validation iteration.

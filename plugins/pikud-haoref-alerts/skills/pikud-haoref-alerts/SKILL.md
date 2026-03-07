@@ -19,7 +19,7 @@ compatibility: >
   deployment examples assume GCP me-west1 (Tel Aviv) or equivalent Israeli IP.
 metadata:
   author: Yaniv Golan
-  version: 0.5.5
+  version: 0.5.6
   tags: [israel, alerts, civil-defense, pikud-haoref, tzeva-adom, rockets, emergency]
 ---
 
@@ -170,30 +170,32 @@ A category 14 alert with the title "בדקות הקרובות צפויות לה�
 A common analysis task is determining which pre-alerts (cat 14) escalated to actual alerts (cat 1–7). The challenge: location strings don't always match cleanly between categories, and multiple alerts may follow a single pre-alert.
 
 ```python
-def match_prealerts_to_alerts(history, window_minutes=20):
+from datetime import timedelta
+
+def match_prealerts_to_alerts(history, source="oref_history", window_minutes=20):
     """Match cat 14 pre-alerts to subsequent cat 1-7 alerts by location overlap.
 
+    Uses normalize_alert_time() for proper datetime comparison.
     Returns list of (prealert, [matching_alerts]) tuples.
     """
     prealerts = [e for e in history if e.get("category") == 14]
     alerts = [e for e in history if e.get("category") in (1, 2, 3, 4, 5, 6, 7)]
+    window = timedelta(minutes=window_minutes)
     matches = []
 
     for pa in prealerts:
-        pa_time = pa["alertDate"]
+        pa_time = normalize_alert_time(pa["alertDate"], source)
         pa_locations = pa.get("data", "")
         matched = []
         for a in alerts:
-            # Must be after the pre-alert and within the window
-            if a["alertDate"] <= pa_time:
+            a_time = normalize_alert_time(a["alertDate"], source)
+            if a_time <= pa_time or a_time > pa_time + window:
                 continue
-            # Simple time window check (string comparison works for same-day)
-            # For production, parse to datetime and compare properly
             a_locations = a.get("data", "")
-            # Substring match: any location word overlap
+            # Token overlap: handles partial location name matches
             pa_words = set(pa_locations.replace(",", " ").split())
             a_words = set(a_locations.replace(",", " ").split())
-            if pa_words & a_words:  # any shared location tokens
+            if pa_words & a_words:
                 matched.append(a)
         matches.append((pa, matched))
 
@@ -253,9 +255,10 @@ The 3,000-record cap on both official history endpoints means you need different
 **Combining oref + Tzofar data:** For multi-day conflict analysis, you'll typically need both sources. Key alignment points: (1) normalize timestamps — oref uses Israel local time strings, Tzofar uses Unix timestamps (UTC); (2) use the category mapping table in `references/alternative-data-sources.md` to align threat types; (3) deduplicate by matching on timestamp + city name, since both sources report the same underlying alerts.
 
 ```python
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo  # stdlib in Python 3.9+
 
-IST = timezone(timedelta(hours=2))  # Israel Standard Time (use +3 during DST)
+IST = ZoneInfo("Asia/Jerusalem")  # handles DST automatically
 
 def normalize_alert_time(raw, source):
     """Normalize any alert timestamp to a Python datetime in Israel time.
