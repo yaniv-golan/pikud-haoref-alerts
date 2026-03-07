@@ -2,6 +2,18 @@
 
 All notable changes to this plugin will be documented in this file.
 
+## [0.5.1] - 2026-03-07
+
+Fixes factual errors found during Cowork validation of v0.5.0.
+
+### Fixed
+- Tzofar data model: was compact array `[id, threat, [cities], ts]`, actually nested objects with `alerts[]` sub-array containing `time`, `cities`, `threat`, `isDrill`
+- Tzofar `/static/historical/all.json` endpoint is dead (404) — replaced with ID iteration strategy
+- Tzofar `/static/cities.json` and `/static/polygons.json` are dead (404) — noted as unavailable
+- hasadna/oref-alarms-history clarified as scraper-only (no downloadable dataset)
+- Meir017/oref-data clarified as having a `data.json` file (~390KB)
+- Historical data strategy table no longer references dead Tzofar static URL
+
 ## [0.5.0] - 2026-03-07
 
 Learnings from Cowork research session analyzing the official and third-party APIs.

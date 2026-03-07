@@ -19,7 +19,7 @@ compatibility: >
   deployment examples assume GCP me-west1 (Tel Aviv) or equivalent Israeli IP.
 metadata:
   author: Yaniv Golan
-  version: 0.5.0
+  version: 0.5.1
   tags: [israel, alerts, civil-defense, pikud-haoref, tzeva-adom, rockets, emergency]
 ---
 
@@ -206,7 +206,7 @@ The 3,000-record cap on both official history endpoints means you need different
 | Last few minutes | `alerts.json` (real-time) | Poll every 1–2 seconds |
 | Last ~3,000 records | `AlertsHistory.json` or `GetAlarmsHistory.aspx` | Hours to weeks depending on activity level |
 | Last 50 alert groups | `api.tzevaadom.co.il/alerts-history` | No geo-blocking, no pre-alerts/concluded |
-| Months/years of history | Tzofar `/static/historical/all.json` | 20K+ records back to May 2021, no geo-blocking, no pre-alerts/concluded |
+| Months/years of history | Iterate Tzofar alert group IDs backwards | No geo-blocking, no pre-alerts/concluded; use parallel fetching |
 | Complete historical with all categories | Run your own continuous poller | See community archives in `references/alternative-data-sources.md` |
 
 **Oref category to Tzofar threat mapping:** When working with both data sources, note that the numeric IDs differ. See the full mapping table in `references/alternative-data-sources.md`. Key gotcha: Tzofar does not include pre-alerts (cat 14) or event-concluded (cat 13) messages.

@@ -18,25 +18,50 @@ Returns the last 50 alert groups. No pagination support found.
 GET https://api.tzevaadom.co.il/alerts-history/id/{id}
 ```
 
-**Full historical archive:**
+**Historical data via ID iteration:**
+
+There is no bulk download endpoint. To build historical data, iterate alert group IDs backwards from the latest known ID:
+
 ```
-GET https://api.tzevaadom.co.il/static/historical/all.json
+GET https://api.tzevaadom.co.il/alerts-history/id/5913
+GET https://api.tzevaadom.co.il/alerts-history/id/5912
+GET https://api.tzevaadom.co.il/alerts-history/id/5911
+...
 ```
 
-A ~1.6MB static JSON file containing 20,000+ alert records going back to May 2021. This is the only publicly accessible source for deep historical data without running your own poller. No geo-blocking.
+Use parallel fetching (e.g., 10 concurrent requests) to avoid timeouts when fetching hundreds of groups. The `/alerts-history` endpoint returns the most recent ~50 groups — use the lowest `id` from that response as your starting point for iteration.
 
 ### Data model
 
-Tzofar uses a compact array format, different from oref's object format:
+Tzofar groups alerts into "alert groups." Each group contains one or more sub-alerts (typically one per threat wave).
 
+**`/alerts-history` response** (array of alert groups):
 ```json
-[id, threat, [cities], unix_timestamp]
+[
+  {
+    "id": 5913,
+    "description": null,
+    "alerts": [
+      {
+        "time": 1772857423,
+        "cities": ["תל אביב - מרכז העיר", "רמת גן - מערב"],
+        "threat": 0,
+        "isDrill": false
+      }
+    ]
+  }
+]
 ```
 
-Example:
-```json
-[123456, 0, ["תל אביב - מרכז העיר", "רמת גן - מערב"], 1709830200]
-```
+**`/alerts-history/id/{id}` response** (single alert group, same structure as one array element above).
+
+**Key fields:**
+- `id` — Sequential alert group ID. Can be iterated backwards for historical data.
+- `alerts[].time` — Unix timestamp of the alert.
+- `alerts[].cities` — Array of affected location names in Hebrew.
+- `alerts[].threat` — Threat type number (see mapping table below).
+- `alerts[].isDrill` — Boolean indicating if this is a drill.
+- `description` — Usually null; occasionally contains a text description.
 
 ### Threat type mapping
 
@@ -76,11 +101,7 @@ Tzofar uses its own numeric threat types (different from oref categories):
 
 ### Tzofar location and polygon data
 
-Tzofar hosts its own city and polygon datasets:
-- `https://api.tzevaadom.co.il/static/cities.json`
-- `https://api.tzevaadom.co.il/static/polygons.json`
-
-Version numbers are tracked via `https://api.tzevaadom.co.il/lists-versions`. These can be useful alternatives to the eladnava/pikud-haoref-api cities.json.
+Tzofar tracks city and polygon data versions via `https://api.tzevaadom.co.il/lists-versions` (returns e.g. `{"cities": 10, "polygons": 5}`). However, the static download URLs (`/static/cities.json`, `/static/polygons.json`) are no longer available (404 as of March 2026). Use the eladnava/pikud-haoref-api `cities.json` instead.
 
 ---
 
@@ -88,7 +109,7 @@ Version numbers are tracked via `https://api.tzevaadom.co.il/lists-versions`. Th
 
 These projects solve the historical data problem by continuously polling and archiving alerts:
 
-- **[hasadna/oref-alarms-history](https://github.com/hasadna/oref-alarms-history)** — Continuous scraper by The Public Knowledge Workshop (Israel's civic data org)
-- **[Meir017/oref-data](https://github.com/Meir017/oref-data)** — Git-based alert aggregator
+- **[hasadna/oref-alarms-history](https://github.com/hasadna/oref-alarms-history)** — Scraper scripts by The Public Knowledge Workshop (Israel's civic data org). No downloadable dataset — you run the scraper yourself to collect data.
+- **[Meir017/oref-data](https://github.com/Meir017/oref-data)** — Git-based alert aggregator with a `data.json` file (~390KB) containing aggregated alerts.
 - **[Kaggle dataset](https://www.kaggle.com/datasets/sab30226/rocket-alerts-in-israel-made-by-tzeva-adom)** — Downloadable dataset of historical alerts
 - **[idodov/RedAlert](https://github.com/idodov/RedAlert)** — Home Assistant integration with file-based archiving
