@@ -2,6 +2,21 @@
 
 All notable changes to this plugin will be documented in this file.
 
+## [0.6.0] - 2026-03-07
+
+Factual corrections from independent AI review against live endpoints.
+
+### Fixed
+- GCP free tier: e2-micro is NOT free-tier eligible in me-west1 (free tier limited to US regions)
+- Geo-blocking: softened from "blocks all non-Israeli IPs" to "may block" — blocking is inconsistent; Tzofar not affected
+- alertCategories.json: clarified that it returns {id, category, matrix_id, priority, queue} objects, not a direct number-to-name mapping
+- Path sensitivity: 403 is caused by missing `/alert/` segment, not by URL casing (both cases work)
+- Headers: Referer/X-Requested-With are recommended, not required — alerts.json works without them
+- Countdown max: was 180s, actually 90s per cities.json
+- Ashkelon example: has subareas (North/South) with 30s countdown, not 15s; no plain "Ashkelon" entry
+- Timezone gotcha: now references `Asia/Jerusalem` zoneinfo instead of hardcoded UTC+2/+3
+- 403 gotcha: updated to reflect correct cause (missing /alert/ segment, not casing)
+
 ## [0.5.6] - 2026-03-07
 
 Sixth Cowork validation iteration.

@@ -19,7 +19,7 @@ compatibility: >
   deployment examples assume GCP me-west1 (Tel Aviv) or equivalent Israeli IP.
 metadata:
   author: Yaniv Golan
-  version: 0.5.6
+  version: 0.6.0
   tags: [israel, alerts, civil-defense, pikud-haoref, tzeva-adom, rockets, emergency]
 ---
 
@@ -35,12 +35,11 @@ For detailed reference material, see the `references/` directory:
 
 ## Critical constraint: geo-blocking
 
-The official oref.org.il API **blocks non-Israeli IP addresses**. This is the single most important thing to know before writing any code. Every approach described here either runs from an Israeli IP or uses a proxy/middleware that does. When helping someone build an integration, always surface this constraint early — it saves hours of debugging.
+The official oref.org.il API **may block non-Israeli IP addresses**. This is the most common source of unexpected 403 errors. The blocking appears to be CDN/Akamai-based and may not apply consistently to all non-Israeli IPs — try your endpoint first before setting up proxy infrastructure. Tzofar (tzevaadom.co.il) endpoints are **not geo-blocked** and work from any IP.
 
-**Recommended workaround:** Deploy on a GCP `me-west1` (Tel Aviv) VM. The `e2-micro` instance type is free-tier eligible and provides a legitimate Israeli IP.
+**Workaround if blocked:** Deploy on a GCP `me-west1` (Tel Aviv) VM. Note: `e2-micro` is not free-tier eligible in `me-west1` (free tier is limited to select US regions), but it is the cheapest option for an Israeli IP.
 
 ```bash
-# Create free-tier VM with Israeli IP
 gcloud compute instances create pikud-haoref \
   --zone=me-west1-a \
   --machine-type=e2-micro \
@@ -48,7 +47,6 @@ gcloud compute instances create pikud-haoref \
   --image-project=debian-cloud \
   --tags=http-server
 
-# Open ports
 gcloud compute firewall-rules create allow-pikud-haoref \
   --allow=tcp:8000-8002 --target-tags=http-server
 ```
@@ -87,9 +85,9 @@ Returns the currently active alert, or an empty response when no alert is active
 - `data` — Array of affected location names in Hebrew.
 - `desc` — Protective instructions in Hebrew.
 
-**Response when no alert:** Empty body or empty JSON object.
+**Response when no alert:** Empty body (possibly with BOM only).
 
-**Required headers:** The endpoint expects a browser-like `Referer` and `X-Requested-With` header:
+**Recommended headers:** The endpoint works without special headers, but sending browser-like headers reduces the chance of being blocked:
 ```
 Referer: https://www.oref.org.il/
 X-Requested-With: XMLHttpRequest
@@ -105,7 +103,7 @@ Returns the most recent alerts, **hard-capped at 3,000 records with no paginatio
 
 **Degradation under load:** During high-volume periods (active conflict), `AlertsHistory.json` can return HTTP 200 with an empty body (~2 bytes) while `GetAlarmsHistory.aspx` continues to return full data (600KB+). **Prefer `GetAlarmsHistory.aspx` as the primary history source** and treat `AlertsHistory.json` as a fallback.
 
-**Important:** The commonly documented path `/WarningMessages/History/AlertsHistory.json` (capital W/M, no `/alert/` segment) is blocked by Akamai WAF with a 403. The working path uses lowercase `warningMessages` and includes `/alert/` — matching what the Angular SPA actually requests.
+**Important:** Paths without the `/alert/` segment (e.g., `/warningMessages/History/AlertsHistory.json`) return 403. The path casing itself is not sensitive — both `/WarningMessages/` and `/warningMessages/` work — but the `/alert/` segment is required.
 
 **Response format:**
 ```json
@@ -141,7 +139,7 @@ An ASP.NET endpoint on a dedicated subdomain that returns richer history data in
 GET https://www.oref.org.il/alerts/alertCategories.json
 ```
 
-Returns the mapping of category numbers to alert types. Known categories:
+Returns category metadata as objects with `id`, `category` (string slug), `matrix_id`, `priority`, and `queue` fields. Note: the response does not directly map category numbers to Hebrew names — the table below is derived from observing live alert data, not from this endpoint alone. Known categories:
 
 | Category | Type | Hebrew |
 |----------|------|--------|
@@ -350,7 +348,7 @@ def cities_near(lat, lon, radius_km, cities_db):
 
 ### Time-to-shelter
 
-Every location has a `countdown` value (seconds). Ranges from 0 seconds (border communities near Gaza) to 180 seconds (central Israel). Always include this when reporting location-specific alerts — it's life-safety critical.
+Every location has a `countdown` value (seconds). Ranges from 0 seconds (border communities near Gaza) to 90 seconds. Always include this when reporting location-specific alerts — it's life-safety critical.
 
 ---
 
@@ -364,10 +362,10 @@ Every location has a `countdown` value (seconds). Ranges from 0 seconds (border 
 - Result: Working bot that sends alerts to a Telegram chat
 
 **Example 2: "Is there an alert in Ashkelon right now?"**
-- Load cities.json to resolve "Ashkelon" → "אשקלון"
+- Load cities.json — note Ashkelon has subareas: "Ashkelon - North" (`אשקלון - צפון`) and "Ashkelon - South" (`אשקלון - דרום`), each with 30-second countdown
 - **Dual-check**: poll `alerts.json` AND check history for recent cat 1–7 alerts without a matching cat 13
-- Substring-match "אשקלון" against the alert `data` fields
-- Report result including time-to-shelter (15 seconds for Ashkelon)
+- Substring-match "אשקלון" against the alert `data` fields to catch all subareas
+- Report result including time-to-shelter (30 seconds for Ashkelon)
 - If alerts.json is empty but history shows a recent alert with no cat 13 → situation is still active
 
 **Example 3: "Set up a live alert map dashboard"**
@@ -401,5 +399,5 @@ Every location has a `countdown` value (seconds). Ranges from 0 seconds (border 
 6. **Multiple simultaneous alerts** — During heavy barrages, multiple alert types can be active simultaneously. Your code should handle arrays, not assume single alerts.
 7. **Drill alerts** — Categories 101–107 are drills. Filter them unless you specifically want them.
 8. **3,000-record history cap** — Both `AlertsHistory.json` and `GetAlarmsHistory.aspx` are hard-capped at 3,000 records with no pagination or date-range filtering. During the March 2026 conflict, 3,000 records were exhausted in ~97 minutes (854 pre-alerts + 480 missiles + 38 aircraft + 1,628 concluded). The `mode=1,2,3` parameter on `GetAlarmsHistory.aspx` does NOT provide pagination — all modes return the same 3,000 most recent records (`mode=4,5` return empty). For deeper history, use Tzofar's archive or a community poller (see `references/alternative-data-sources.md`).
-9. **Israel timezone** — All oref timestamps are in Israel local time (UTC+2, or UTC+3 during DST which runs late March to late October). Tzofar uses Unix timestamps (UTC). When combining sources or grouping by day, normalize to a consistent timezone first.
-10. **403 Forbidden** — Two common causes: (a) geo-blocking — deploy from an Israeli IP (GCP me-west1) or use a proxy; (b) Akamai WAF blocking the URL path — the endpoint paths are case-sensitive and must match exactly what the Angular SPA uses (lowercase `warningMessages`, include `/alert/` segment). The commonly documented uppercase paths return 403 even from Israeli IPs.
+9. **Israel timezone** — All oref timestamps are in Israel local time (`Asia/Jerusalem` — use `zoneinfo.ZoneInfo("Asia/Jerusalem")` for automatic DST handling). Tzofar uses Unix timestamps (UTC). When combining sources or grouping by day, normalize to a consistent timezone first.
+10. **403 Forbidden** — Two common causes: (a) geo-blocking — deploy from an Israeli IP (GCP me-west1) or use a proxy, though blocking is not consistent for all non-Israeli IPs; (b) missing `/alert/` path segment — e.g., `/warningMessages/History/AlertsHistory.json` returns 403 while `/warningMessages/alert/History/AlertsHistory.json` works. Path casing is not sensitive.
