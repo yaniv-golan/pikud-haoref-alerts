@@ -2,6 +2,20 @@
 
 All notable changes to this plugin will be documented in this file.
 
+## [0.5.4] - 2026-03-07
+
+Code recipes and documentation polish from fourth Cowork validation.
+
+### Added
+- Ready-to-use Tzofar backward iteration function (stdlib only, handles 404 gaps, rate limiting, date cutoff)
+- Timestamp normalization function for all three source formats (oref history, oref aspx, Tzofar unix)
+- Tzofar alert group semantics: groups = incidents/barrages, sub-alerts = waves
+- Expected throughput: ~200 groups in ~70s at 0.35s pacing
+
+### Changed
+- Endpoint ordering: GetAlarmsHistory.aspx is now "recommended", AlertsHistory.json labeled "unreliable under load"
+- Fill-rate example: "~6 hours of a single day" instead of vague "less than a single day"
+
 ## [0.5.3] - 2026-03-07
 
 Fixes from third Cowork validation run.

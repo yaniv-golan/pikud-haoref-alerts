@@ -19,7 +19,7 @@ compatibility: >
   deployment examples assume GCP me-west1 (Tel Aviv) or equivalent Israeli IP.
 metadata:
   author: Yaniv Golan
-  version: 0.5.3
+  version: 0.5.4
   tags: [israel, alerts, civil-defense, pikud-haoref, tzeva-adom, rockets, emergency]
 ---
 
@@ -95,7 +95,7 @@ Referer: https://www.oref.org.il/
 X-Requested-With: XMLHttpRequest
 ```
 
-### Alert history
+### Alert history (JSON file — unreliable under load)
 
 ```
 GET https://www.oref.org.il/warningMessages/alert/History/AlertsHistory.json
@@ -121,7 +121,7 @@ Returns the most recent alerts, **hard-capped at 3,000 records with no paginatio
 
 Note that `data` here is a string (not an array like the real-time endpoint), and `category` is a number (not a string).
 
-### Alert history (alternative endpoint)
+### Alert history (recommended)
 
 ```
 GET https://alerts-history.oref.org.il/Shared/Ajax/GetAlarmsHistory.aspx?lang=he&mode=1
@@ -214,6 +214,27 @@ The 3,000-record cap on both official history endpoints means you need different
 **Pre-alert historical gap (critical limitation):** There is no retroactive source for pre-alert data (cat 14) or event-concluded messages (cat 13). Tzofar excludes them entirely. The official oref history endpoints include them but are capped at 3,000 records. During active conflict, those 3,000 records may cover only hours. **If you need historical pre-alert data, you MUST set up your own continuous poller before the period you want to analyze.** There is no way to recover this data after the fact. Community archives (hasadna, Meir017) also lack pre-alerts unless their specific scraper captures them.
 
 **Combining oref + Tzofar data:** For multi-day conflict analysis, you'll typically need both sources. Key alignment points: (1) normalize timestamps — oref uses Israel local time strings, Tzofar uses Unix timestamps (UTC); (2) use the category mapping table in `references/alternative-data-sources.md` to align threat types; (3) deduplicate by matching on timestamp + city name, since both sources report the same underlying alerts.
+
+```python
+from datetime import datetime, timezone, timedelta
+
+IST = timezone(timedelta(hours=2))  # Israel Standard Time (use +3 during DST)
+
+def normalize_alert_time(raw, source):
+    """Normalize any alert timestamp to a Python datetime in Israel time.
+
+    source: 'oref_history' | 'oref_aspx' | 'tzofar'
+    """
+    if source == "oref_history":
+        # "2026-03-07 19:33:53" (space-separated, Israel local time)
+        return datetime.strptime(raw, "%Y-%m-%d %H:%M:%S").replace(tzinfo=IST)
+    elif source == "oref_aspx":
+        # "2026-03-07T19:35:00" (ISO T-separator, Israel local time)
+        return datetime.strptime(raw, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=IST)
+    elif source == "tzofar":
+        # Unix timestamp (UTC)
+        return datetime.fromtimestamp(raw, tz=timezone.utc).astimezone(IST)
+```
 
 **Oref category to Tzofar threat mapping:** When working with both data sources, note that the numeric IDs differ. See the full mapping table in `references/alternative-data-sources.md`.
 
@@ -339,6 +360,6 @@ Every location has a `countdown` value (seconds). Ranges from 0 seconds (border 
 5. **Hebrew encoding** — All location names and descriptions are in Hebrew. Use UTF-8 throughout your stack.
 6. **Multiple simultaneous alerts** — During heavy barrages, multiple alert types can be active simultaneously. Your code should handle arrays, not assume single alerts.
 7. **Drill alerts** — Categories 101–107 are drills. Filter them unless you specifically want them.
-8. **3,000-record history cap** — Both `AlertsHistory.json` and `GetAlarmsHistory.aspx` are hard-capped at 3,000 records with no pagination or date-range filtering. During high-intensity conflicts, this can cover less than a single day. The `mode=1,2,3` parameter on `GetAlarmsHistory.aspx` does NOT provide pagination — all modes return the same 3,000 most recent records (`mode=4,5` return empty). For deeper history, use Tzofar's archive or a community poller (see `references/alternative-data-sources.md`).
+8. **3,000-record history cap** — Both `AlertsHistory.json` and `GetAlarmsHistory.aspx` are hard-capped at 3,000 records with no pagination or date-range filtering. During the March 2026 conflict, 3,000 records covered only ~6 hours of a single day. The `mode=1,2,3` parameter on `GetAlarmsHistory.aspx` does NOT provide pagination — all modes return the same 3,000 most recent records (`mode=4,5` return empty). For deeper history, use Tzofar's archive or a community poller (see `references/alternative-data-sources.md`).
 9. **Israel timezone** — All oref timestamps are in Israel local time (UTC+2, or UTC+3 during DST which runs late March to late October). Tzofar uses Unix timestamps (UTC). When combining sources or grouping by day, normalize to a consistent timezone first.
 10. **403 Forbidden** — Two common causes: (a) geo-blocking — deploy from an Israeli IP (GCP me-west1) or use a proxy; (b) Akamai WAF blocking the URL path — the endpoint paths are case-sensitive and must match exactly what the Angular SPA uses (lowercase `warningMessages`, include `/alert/` segment). The commonly documented uppercase paths return 403 even from Israeli IPs.

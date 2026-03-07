@@ -44,9 +44,60 @@ GET https://api.tzevaadom.co.il/alerts-history/id/5911
 
 The `/alerts-history` endpoint returns the most recent ~50 groups — use the lowest `id` from that response as your starting point for backward iteration. **IDs are mostly sequential but gaps exist** — e.g., IDs 5599–5663 all return 404 while surrounding IDs work. When iterating, skip 404s and stop after a tolerance limit (e.g., 100 consecutive 404s).
 
+**Ready-to-use iteration function (stdlib only):**
+
+```python
+import urllib.request, json, time
+
+def fetch_tzofar_history(start_id, min_date_unix=0, max_gap=100, delay=0.35):
+    """Iterate Tzofar alert group IDs backwards.
+
+    Args:
+        start_id: Highest ID to start from (get from /alerts-history).
+        min_date_unix: Stop when alerts are older than this Unix timestamp.
+        max_gap: Stop after this many consecutive 404s.
+        delay: Seconds between requests (0.3-0.5 avoids 429s).
+
+    Returns: List of alert group dicts, newest first.
+    """
+    results = []
+    consecutive_404s = 0
+    current_id = start_id
+
+    while consecutive_404s < max_gap and current_id > 0:
+        req = urllib.request.Request(
+            f"https://api.tzevaadom.co.il/alerts-history/id/{current_id}",
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                group = json.loads(resp.read())
+                consecutive_404s = 0
+                # Check if oldest alert in group is before our cutoff
+                times = [a["time"] for a in group.get("alerts", [])]
+                if times and min(times) < min_date_unix:
+                    results.append(group)
+                    break
+                results.append(group)
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                consecutive_404s += 1
+            elif e.code == 429:
+                time.sleep(2)  # back off on rate limit
+                continue  # retry same ID
+            else:
+                raise
+        current_id -= 1
+        time.sleep(delay)
+
+    return results
+```
+
+**Expected throughput:** ~200 groups in ~70 seconds at 0.35s pacing. Plan for 2+ minutes when fetching 300+ groups (e.g., a full week of conflict). If running inside an LLM agent with bash timeouts, consider splitting into batches with intermediate saves.
+
 ### Data model
 
-Tzofar groups alerts into "alert groups." Each group contains one or more sub-alerts (typically one per threat wave).
+Tzofar groups alerts into "alert groups." Each group represents an **incident** (typically a single barrage/volley of incoming rockets). Sub-alerts within a group are **waves** — successive bursts within the same incident, often seconds apart. The `cities` array in each sub-alert lists all locations affected by that wave. A group with 3 sub-alerts means 3 waves hit during one incident, potentially affecting different locations each time.
 
 **`/alerts-history` response** (array of alert groups):
 ```json
