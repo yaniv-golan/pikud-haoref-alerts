@@ -2,6 +2,20 @@
 
 All notable changes to this plugin will be documented in this file.
 
+## [0.5.3] - 2026-03-07
+
+Fixes from third Cowork validation run.
+
+### Fixed
+- Tzofar ID gaps: was "IDs are sequential (no gaps)", actually has gaps (e.g., 5599–5663 return 404)
+- Rate limit guidance: was "1–2 second delays", now "0.3–0.5s delays" based on empirical testing
+- AlertsHistory.json can return empty during high-volume periods; GetAlarmsHistory.aspx is more reliable
+
+### Added
+- Tzofar User-Agent gotcha: Python urllib's default UA gets 403, need browser-like UA
+- Israel timezone note (UTC+2/+3) in gotchas — critical for grouping by day
+- Combined oref + Tzofar source guidance for multi-day analysis (timestamp normalization, deduplication)
+
 ## [0.5.2] - 2026-03-07
 
 Fixes remaining issues found during second Cowork validation run.

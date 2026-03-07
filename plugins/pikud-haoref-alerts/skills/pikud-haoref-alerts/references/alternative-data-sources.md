@@ -6,6 +6,17 @@ Tzofar is a popular third-party alert relay service. Unlike the official oref.or
 
 ### Endpoints
 
+**Required headers:** Tzofar blocks Python's default `User-Agent: Python-urllib/X.Y` with HTTP 403. Set a browser-like User-Agent:
+
+```python
+# Works
+requests.get(url)  # requests uses its own UA, not blocked
+urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+
+# Fails with 403
+urllib.request.urlopen(url)  # sends Python-urllib/3.x
+```
+
 **Recent alert groups (last 50):**
 ```
 GET https://api.tzevaadom.co.il/alerts-history
@@ -29,9 +40,9 @@ GET https://api.tzevaadom.co.il/alerts-history/id/5911
 ...
 ```
 
-**Rate limiting:** Tzofar enforces rate limits — rapid sequential requests will return HTTP 429 after ~13 requests. Use conservative pacing: 1–2 second delays between requests, and no more than 3–5 concurrent requests. Fetching hundreds of groups will take minutes, not seconds.
+**Rate limiting:** Tzofar rate-limits burst traffic — rapid-fire requests with no delay trigger HTTP 429 after ~13 requests. Adding short delays (0.3–0.5 seconds between requests) avoids 429s entirely and allows fetching hundreds of groups in a few minutes.
 
-The `/alerts-history` endpoint returns the most recent ~50 groups — use the lowest `id` from that response as your starting point for backward iteration. IDs are sequential (no gaps).
+The `/alerts-history` endpoint returns the most recent ~50 groups — use the lowest `id` from that response as your starting point for backward iteration. **IDs are mostly sequential but gaps exist** — e.g., IDs 5599–5663 all return 404 while surrounding IDs work. When iterating, skip 404s and stop after a tolerance limit (e.g., 100 consecutive 404s).
 
 ### Data model
 
