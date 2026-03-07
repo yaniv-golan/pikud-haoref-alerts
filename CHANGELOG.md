@@ -2,6 +2,17 @@
 
 All notable changes to this plugin will be documented in this file.
 
+## [0.5.5] - 2026-03-07
+
+Fifth Cowork validation iteration.
+
+### Added
+- Pre-alert to actual alert matching recipe: correlate cat 14 → cat 1-7 by location overlap + time window
+- Gap optimization hint: jump 50 IDs when hitting 10+ consecutive 404s
+
+### Changed
+- Fill-rate precision: "~97 minutes" with exact category breakdown (854 pre-alerts + 480 missiles + 38 aircraft + 1,628 concluded)
+
 ## [0.5.4] - 2026-03-07
 
 Code recipes and documentation polish from fourth Cowork validation.

@@ -19,7 +19,7 @@ compatibility: >
   deployment examples assume GCP me-west1 (Tel Aviv) or equivalent Israeli IP.
 metadata:
   author: Yaniv Golan
-  version: 0.5.4
+  version: 0.5.5
   tags: [israel, alerts, civil-defense, pikud-haoref, tzeva-adom, rockets, emergency]
 ---
 
@@ -164,6 +164,43 @@ When Pikud HaOref determines the threat to a location has passed, it sends a cat
 ### Category 14: pre-alert (incoming alerts warning)
 
 A category 14 alert with the title "בדקות הקרובות צפויות להתקבל התרעות באזורך" warns that alerts are expected in the coming minutes for a given area. This is an early warning that a barrage is incoming — valuable for preparation time beyond the standard time-to-shelter countdown. If a pre-alert doesn't escalate to an actual alert (cat 1–7) within ~20 minutes, it can be considered expired.
+
+### Matching pre-alerts to actual alerts
+
+A common analysis task is determining which pre-alerts (cat 14) escalated to actual alerts (cat 1–7). The challenge: location strings don't always match cleanly between categories, and multiple alerts may follow a single pre-alert.
+
+```python
+def match_prealerts_to_alerts(history, window_minutes=20):
+    """Match cat 14 pre-alerts to subsequent cat 1-7 alerts by location overlap.
+
+    Returns list of (prealert, [matching_alerts]) tuples.
+    """
+    prealerts = [e for e in history if e.get("category") == 14]
+    alerts = [e for e in history if e.get("category") in (1, 2, 3, 4, 5, 6, 7)]
+    matches = []
+
+    for pa in prealerts:
+        pa_time = pa["alertDate"]
+        pa_locations = pa.get("data", "")
+        matched = []
+        for a in alerts:
+            # Must be after the pre-alert and within the window
+            if a["alertDate"] <= pa_time:
+                continue
+            # Simple time window check (string comparison works for same-day)
+            # For production, parse to datetime and compare properly
+            a_locations = a.get("data", "")
+            # Substring match: any location word overlap
+            pa_words = set(pa_locations.replace(",", " ").split())
+            a_words = set(a_locations.replace(",", " ").split())
+            if pa_words & a_words:  # any shared location tokens
+                matched.append(a)
+        matches.append((pa, matched))
+
+    return matches
+```
+
+**Notes:** Location strings between cat 14 and cat 1 don't always match exactly — cat 14 often uses zone/area names while cat 1 uses specific city names. Substring or token overlap matching works better than exact matching. The 20-minute window reflects the typical pre-alert-to-alert escalation time; adjust based on observed patterns.
 
 ### Determining if a situation is still active
 
@@ -360,6 +397,6 @@ Every location has a `countdown` value (seconds). Ranges from 0 seconds (border 
 5. **Hebrew encoding** — All location names and descriptions are in Hebrew. Use UTF-8 throughout your stack.
 6. **Multiple simultaneous alerts** — During heavy barrages, multiple alert types can be active simultaneously. Your code should handle arrays, not assume single alerts.
 7. **Drill alerts** — Categories 101–107 are drills. Filter them unless you specifically want them.
-8. **3,000-record history cap** — Both `AlertsHistory.json` and `GetAlarmsHistory.aspx` are hard-capped at 3,000 records with no pagination or date-range filtering. During the March 2026 conflict, 3,000 records covered only ~6 hours of a single day. The `mode=1,2,3` parameter on `GetAlarmsHistory.aspx` does NOT provide pagination — all modes return the same 3,000 most recent records (`mode=4,5` return empty). For deeper history, use Tzofar's archive or a community poller (see `references/alternative-data-sources.md`).
+8. **3,000-record history cap** — Both `AlertsHistory.json` and `GetAlarmsHistory.aspx` are hard-capped at 3,000 records with no pagination or date-range filtering. During the March 2026 conflict, 3,000 records were exhausted in ~97 minutes (854 pre-alerts + 480 missiles + 38 aircraft + 1,628 concluded). The `mode=1,2,3` parameter on `GetAlarmsHistory.aspx` does NOT provide pagination — all modes return the same 3,000 most recent records (`mode=4,5` return empty). For deeper history, use Tzofar's archive or a community poller (see `references/alternative-data-sources.md`).
 9. **Israel timezone** — All oref timestamps are in Israel local time (UTC+2, or UTC+3 during DST which runs late March to late October). Tzofar uses Unix timestamps (UTC). When combining sources or grouping by day, normalize to a consistent timezone first.
 10. **403 Forbidden** — Two common causes: (a) geo-blocking — deploy from an Israeli IP (GCP me-west1) or use a proxy; (b) Akamai WAF blocking the URL path — the endpoint paths are case-sensitive and must match exactly what the Angular SPA uses (lowercase `warningMessages`, include `/alert/` segment). The commonly documented uppercase paths return 403 even from Israeli IPs.

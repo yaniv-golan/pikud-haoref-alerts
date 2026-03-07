@@ -42,7 +42,7 @@ GET https://api.tzevaadom.co.il/alerts-history/id/5911
 
 **Rate limiting:** Tzofar rate-limits burst traffic — rapid-fire requests with no delay trigger HTTP 429 after ~13 requests. Adding short delays (0.3–0.5 seconds between requests) avoids 429s entirely and allows fetching hundreds of groups in a few minutes.
 
-The `/alerts-history` endpoint returns the most recent ~50 groups — use the lowest `id` from that response as your starting point for backward iteration. **IDs are mostly sequential but gaps exist** — e.g., IDs 5599–5663 all return 404 while surrounding IDs work. When iterating, skip 404s and stop after a tolerance limit (e.g., 100 consecutive 404s).
+The `/alerts-history` endpoint returns the most recent ~50 groups — use the lowest `id` from that response as your starting point for backward iteration. **IDs are mostly sequential but gaps exist** — e.g., IDs 5599–5663 all return 404 while surrounding IDs work. When iterating, skip 404s and stop after a tolerance limit (e.g., 100 consecutive 404s). **Optimization for large gaps:** if you hit 10+ consecutive 404s, try jumping back by 50 IDs to skip past the gap faster, then backfill if needed.
 
 **Ready-to-use iteration function (stdlib only):**
 
